@@ -1,14 +1,45 @@
 library(metro.data)
-library(dplyr)
+library(censusapi)
+library(tidyverse)
 
 # SETUP =================================================
-source("helper.R")
+
+key <- Sys.getenv("CENSUS_API_KEY")
+
+get_SBO <- function(...){
+  getCensus(name = "2012/sbo",
+            vars = c( "NAICS2012","NAICS2012_TTL",
+                      "RACE_GROUP_TTL","RACE_GROUP", 
+                      "ETH_GROUP","ETH_GROUP_TTL",
+                      "SEX","SEX_TTL", "GEO_ID",
+                      "FIRMALL", "FIRMPDEMP"),
+            ...,
+            key = key)
+}
+
+
+create_labels <- function(df) {
+  sjlabelled::get_label(df) %>%
+    data.frame() %>%
+    mutate(names = colnames(df)) %>%
+    rename("label" = ".")
+}
 
 # DATASETS ==============================================
 # define geographies
 MetroDenver_cbsa <- c("22660", "19740", "14500", "24540")
-DV_cbsa <- "19740"
+
+# MetroDenvr_approx <- (county_cbsa_st %>%
+#                         filter(cbsa_code %in% MetroDenver_cbsa))$stco_code
+
+MetroDenvr_actual <- (county_cbsa_st %>%
+                        filter(cbsa_code %in% MetroDenver_cbsa) %>%
+                        filter(!stco_code %in% c("08039", "08093", "08019", "08047")))$stco_code
+
+
+DV_cbsa <- c("19740")
 GR_cbsa <- "24340"
+GR_county <- (county_cbsa_st%>%filter(cbsa_code%in%GR_cbsa))$stco_code
 
 # Who is exluded ---------
 # 1. No job
@@ -89,25 +120,30 @@ get_sbo <- function(stco_code) {
   traded_code <- c("31-33", "51", "52", "54")
   race_code <- c("96", "30", "40")
 
-  sbo <- df %>%
-    filter(RACE_GROUP %in% race_code) %>%
+  df %>%
+    # filter(RACE_GROUP %in% race_code) %>%
     filter(NAICS2012 %in% traded_code) %>%
     filter(ETH_GROUP == "001" & SEX == "001")
 
-  sbo_summary <- sbo %>%
+}
+
+get_sbo_m <- function(stco_code){
+  sbo_df <- purrr::map_df(stco_code, get_sbo)
+  
+  sbo_summary <- sbo_df %>%
     group_by(state, county, RACE_GROUP) %>%
     mutate(firmdemp = as.numeric(FIRMPDEMP)) %>%
     summarise(firmdemp = sum(firmdemp)) %>%
     spread(RACE_GROUP, firmdemp) %>%
-    rename(sbo_wh = `30`, sbo_bk = `40`, sbo_total = `96`) %>%
-    mutate(pct_sbo_bk = sbo_bk / sbo_total)
-
-  return(list(sbo_summary, sbo))
+    rename(white = `30`, black = `40`, asian = `60`,other = `80`, all = `96`) %>%
+    mutate(pct_sbo_bk = black/all, 
+           pct_sbo_wh = white/all)
+  
+  return(list(sbo_summary, sbo_df))
 }
 
 
 # 4. high school compeletion
-
 
 
 # 5. Flat income
@@ -124,22 +160,6 @@ get_hiratio <- function(code) {
   
 }
 
-
-# GET ALL
-
-oow <- get_oow(DV_cbsa)
-yoow <- get_yoow(DV_cbsa)
-lww <- get_lww(DV_cbsa)
-opp <- get_opp(DV_cbsa)
-
-DV_ct <- find_cbsa_counties("denver")$stco_code
-sbo <- get_sbo(DV_ct[[7]])
-
-hiratio <- get_hiratio(DV_cbsa)
-
-# write result =================
-
-openxlsx::write.xlsx(c(oow, yoow, lww, opp, sbo, hiratio), file = paste0(DV_cbsa,".xlsx"))
 
 
 # Why are they excluded --------
