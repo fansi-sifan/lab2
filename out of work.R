@@ -12,8 +12,8 @@ source("func.R")
 # retired or not able to work: receive retirement or benefits income
 
 # LOAD datasets
-oow <- read_csv("data/GRDV.csv")
-oow_label <- read_csv("data/var.csv")
+oow <- read_csv("data/out_of_work_GRDV.csv")
+oow_label <- read_csv("data/out_of_work_var.csv")
 
 load("../metro.data/data/puma2county.rda")
 # determine if PUMA falls into customized geography
@@ -47,8 +47,9 @@ write.csv(oow_details, "oow_details.csv")
 
 # summaries
 oow_summary <- oow_sample %>%
-  select(st_code,a1824, whiteNH, blackNH, latino, asianNH, otherNH, lths,hs, sc, aa, baplus, pwgtp_adj, unemployed, male, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar)%>%
+  select(st_code,a1824,whiteNH, blackNH, latino, asianNH, otherNH, lths,hs, sc, aa, baplus, pwgtp_adj, unemployed, male, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar)%>%
   group_by(st_code, a1824) %>%
+  mutate(count = sum(pwgtp_adj))%>%
   summarise_each(funs(weighted.mean(x=.,w=pwgtp_adj, na.rm = T)), -pwgtp_adj) 
 
 t <- data.table::setDT(as.data.frame(t(oow_summary)), keep.rownames = TRUE)[] %>%
