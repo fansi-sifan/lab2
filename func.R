@@ -138,23 +138,26 @@ get_sbo <- function(stco_code) {
   df %>%
     # filter(RACE_GROUP %in% race_code) %>%
     filter(NAICS2012 %in% traded_code) %>%
-    filter(ETH_GROUP == "001" & SEX == "001")
+    filter(SEX == "001")
 
 }
 
 get_sbo_m <- function(stco_code){
   sbo_df <- purrr::map_df(stco_code, get_sbo)
   
-  sbo_summary <- sbo_df %>%
-    group_by(state, county, GEO_TTL, RACE_GROUP) %>%
+  sbo_summary_race <- sbo_df %>%
+    group_by(state, county, GEO_TTL, RACE_GROUP_TTL) %>%
     mutate(firmdemp = as.numeric(FIRMPDEMP)) %>%
     summarise(firmdemp = sum(firmdemp)) %>%
-    spread(RACE_GROUP, firmdemp) %>%
-    rename(white = `30`, black = `40`, asian = `60`,other = `80`, all = `96`) %>%
-    mutate(pct_sbo_bk = black/all, 
-           pct_sbo_wh = white/all)
+    spread(RACE_GROUP_TTL, firmdemp) 
   
-  return(list(sbo_summary, sbo_df))
+  sbo_summary_ethnicity <- sbo_df %>%
+    group_by(state, county, GEO_TTL, ETH_GROUP_TTL) %>%
+    mutate(firmdemp = as.numeric(FIRMPDEMP)) %>%
+    summarise(firmdemp = sum(firmdemp)) %>%
+    spread(ETH_GROUP_TTL, firmdemp)
+  
+  return(list(sbo_summary_race, sbo_summary_ethnicity, sbo_df))
 }
 
 
