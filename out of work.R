@@ -31,31 +31,56 @@ xwalk <- oow %>%
 
 # breakdowns
 oow_sample <- oow %>%
-  filter(SAMPLE_POP == 1)%>%
   filter(stpuma %in% xwalk$stpuma) %>%
   mutate(st_code = substr(stpuma, 1,2),
          count = 1,
-         nocar = 1-car) 
+         nocar = 1-car)   
 
-oow_details <- oow_sample %>%
-  select(st_code, agecats, schlcats, race,count,pwgtp_adj, unemployed, male, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar)%>%
+oow_details <- bind_rows(
+  oow_sample%>%
+    select(st_code, agecats, schlcats, race,count,pwgtp_adj, unemployed, male, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar)
+  %>%
   group_by(st_code, agecats, schlcats, race) %>%
   summarise_each(funs(sum(.*pwgtp_adj)), -pwgtp_adj) %>%
-  mutate_if(is.numeric, as.integer)
+  mutate_if(is.numeric, as.integer) %>%
+  mutate(population = "Universe population"),
   
-write.csv(oow_details, "oow_details.csv")
+  oow_sample%>%
+    filter(SAMPLE_POP == 1)%>%
+    select(st_code, agecats, schlcats, race,count,pwgtp_adj, unemployed, male, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar)
+  %>%
+    group_by(st_code, agecats, schlcats, race) %>%
+    summarise_each(funs(sum(.*pwgtp_adj)), -pwgtp_adj) %>%
+    mutate_if(is.numeric, as.integer) %>%
+    mutate(population = "Out-of-work population")
+) 
+  
+# write.csv(oow_details, "oow_details.csv")
 
 # summaries
-oow_summary <- oow_sample %>%
-  select(st_code,a1824,whiteNH, blackNH, latino, asianNH, otherNH, lths,hs, sc, aa, baplus, pwgtp_adj, unemployed, male, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar)%>%
-  group_by(st_code, a1824) %>%
-  mutate(count = sum(pwgtp_adj))%>%
-  summarise_each(funs(weighted.mean(x=.,w=pwgtp_adj, na.rm = T)), -pwgtp_adj) 
+oow_summary <- bind_rows(
+  oow_sample %>%
+    select(st_code,a1824,whiteNH, blackNH, latino, asianNH, otherNH, lths,hs, sc, aa, baplus, pwgtp_adj, unemployed, male, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar) %>%
+    group_by(st_code, a1824) %>%
+    mutate(count = sum(pwgtp_adj))%>%
+    summarise_each(funs(weighted.mean(x=.,w=pwgtp_adj, na.rm = T)), -pwgtp_adj)%>%
+    mutate(population = "Universe population"),
+  
+  oow_sample %>%
+    filter(SAMPLE_POP == 1)%>%
+    select(st_code,a1824,whiteNH, blackNH, latino, asianNH, otherNH, lths,hs, sc, aa, baplus, pwgtp_adj, unemployed, male, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar) %>%
+    group_by(st_code,a1824) %>%
+    mutate(count = sum(pwgtp_adj))%>%
+    summarise_each(funs(weighted.mean(x=.,w=pwgtp_adj, na.rm = T)), -pwgtp_adj)%>%
+    mutate(population = "Out-of-work population")
+) %>%
+  select(st_code, population, a1824, count,everything())
 
-t <- data.table::setDT(as.data.frame(t(oow_summary)), keep.rownames = TRUE)[] %>%
+oow_summary <- data.table::setDT(as.data.frame(t(oow_summary)), keep.rownames = TRUE)[] %>%
   left_join(oow_label[c("name", "varlab")], by = c("rn" = "name"))
 
-write.csv(t, "oow_summary.csv")
+
+# write.csv(t, "oow_summary.csv")
 
 
 # [DEPRECIATED] ipums download
