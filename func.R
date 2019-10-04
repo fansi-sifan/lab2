@@ -62,28 +62,10 @@ get_oow <- function(metrocode, peercode) {
 
   df <- co_oow %>%
     filter(cbsa_code %in% code)%>%
-    filter(population == "Sample population")
+    filter(grepl("population",population))
 
   oow_summary <- bind_cols(create_labels(co_oow), data.table::transpose(df))
-  return(list(oow_summary, oow))
-}
-
-tmp <- get_oow(MetroDenver_cbsa, Denverpeer_cbsa)
-
-get_yoow <- function(metrocode, peercode) {
-  # young out of work
-  load("../metro-dataset/out_of_work/co_oow_young.rda")
-  code <- c(metrocode, peercode)
-  
-  yoow <- co_oow_young %>%
-    filter(cbsa_code %in% metrocode)
-
-  df <- co_oow_young %>%
-    filter(cbsa_code %in% code)%>%
-    filter(population == "Out-of-work population")
-
-  yoow_summary <- bind_cols(create_labels(co_oow_young), data.table::transpose(df))
-  return(list(yoow_summary, yoow))
+  return(oow = list(peer = df, labeled = oow_summary, details = oow))
 }
 
 
@@ -97,10 +79,10 @@ get_lww <- function(metrocode, peercode) {
 
   df <- cbsa_low_wage_worker %>%
     filter(cbsa_code %in% code)%>%
-    filter(population == "Low-wage workers")
+    filter(grepl("Low-wage workers|Workers",population))
 
   lww_summary <- bind_cols(create_labels(cbsa_low_wage_worker), data.table::transpose(df))
-  return(list(lww_summary,lww))
+  return(lww = list(peer = df, labeled = lww_summary, details = lww))
 }
 
 # opportunity industries
@@ -113,10 +95,12 @@ get_opp <- function(metrocode, peercode) {
   opp <- cbsa_oppind_race %>%
     filter(cbsa_code %in% metrocode)
 
-  opp_summary <- cbsa_oppind %>%
+  df <- cbsa_oppind %>%
     filter(cbsa_code %in% code) 
+  
+  opp_summary <- data.table(transpose(df))
 
-  return(list(opp_summary, opp))
+  return(opp = list(peer = df, labeled = opp_summary, details = opp))
 }
 
 
@@ -157,19 +141,19 @@ get_sbo_m <- function(stco_code){
     summarise(firmdemp = sum(firmdemp)) %>%
     spread(ETH_GROUP_TTL, firmdemp)
   
-  return(list(sbo_summary_race, sbo_summary_ethnicity, sbo_df))
+  return(sbo = list(race = sbo_summary_race, ethnicity = sbo_summary_ethnicity, details = sbo_df))
 }
 
 
 # 4. School proficiency 
 
 get_school <- function(code){
-  load("../metro-dataset/school proficiency/co_school_scores.rda")
+  load("../metro-dataset/school proficiency/co_school_proficiency.rda")
   
-  df <- co_school_scores %>%
+  df <- co_school_proficiency %>%
     filter(stco_code %in% code)
   
-  return(list(df))
+  return(school = list(labeled = df))
 }
 
 
@@ -184,7 +168,8 @@ get_hiratio <- function(metrocode, peercode) {
     filter(cbsa_code %in% code)
   
   hi_summary <- bind_cols(create_labels(df), data.table::transpose(df))
-  return(list(hi_summary, cbsa_housing_price))
+  
+  return(hiratio = list(peer = df, labeled = hi_summary, details = cbsa_housing_price))
   
 }
 
@@ -192,9 +177,37 @@ get_hiratio <- function(metrocode, peercode) {
 
 # Why are they excluded --------
 # 1. Lack of quality job creation
-# a. advanced industry trend
-# b. share of jobs below living wage over time
+# a. advanced industry/tradable trend
+
+# EMSI 4/6 digit over time
+
+# b. share of new jobs below living wage over time
 # c. small firms and wage
 # ASE
 
+# 2. Lack of job preparation
+# a. high school dropouts and stopouts
+
+# b. Misaligned training: demand for tech skill outpace supply (digital training)
+
+# c. decline in employer-provided training
+
+# 3. Lack of job access
+# a. Job sprawl
+# natalie
+
+# b. job access difference for transit/car user
+# Access Across America
+
+
+# 4. Lack of capital
+# a. CDFI 
+# b. SBIR
+
+
+# 5. Lack of supportive social network
+# Chetty 
+# Mike Lee: social capital project
+
+# 6. Employer practices
 
