@@ -5,7 +5,6 @@ source("func.R")
 
 get_all <- function(metrocode, peercode, stco_code, name){
   oow <- get_oow(metrocode, peercode)
-  yoow <- get_yoow(metrocode, peercode)
   lww <- get_lww(metrocode, peercode)
   opp <- get_opp(metrocode, peercode)
   
@@ -13,16 +12,19 @@ get_all <- function(metrocode, peercode, stco_code, name){
   school <- get_school(stco_code)
   hiratio <- get_hiratio(metrocode, peercode)
   
-  openxlsx::write.xlsx(c(oow, yoow, lww, opp, sbo, school, hiratio), file = paste0(name,".xlsx"))
+  df <- list(oow = oow, lww = lww,opp = opp, sbo = sbo, school = school, hiratio = hiratio)
+  # openxlsx::write.xlsx(df, file = paste0(name,".xlsx"))
+  
+  return(df)
   
 }
 
 # denver data
-get_all(MetroDenver_cbsa,Denverpeer_cbsa, MetroDenvr_actual, "Metro Denver")
+Denver <- get_all(MetroDenver_cbsa,Denverpeer_cbsa, MetroDenvr_actual, "Metro Denver")
 
 # GR data
-get_all(GR_cbsa,GRpeer_cbsa,GR_county, "Grand Rapids")
+GR <- get_all(GR_cbsa,GRpeer_cbsa,GR_county, "Grand Rapids")
 
 
-df <- get_sbo_m(MetroDenvr_actual)
+# df <- get_sbo_m(MetroDenvr_actual)
 
