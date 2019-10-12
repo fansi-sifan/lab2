@@ -76,11 +76,11 @@ oow_summary <- bind_rows(
 ) %>%
   select(st_code, population, a1824, count,everything())
 
-oow_summary <- data.table::setDT(as.data.frame(t(oow_summary)), keep.rownames = TRUE)[] %>%
+oow_summary_t <- data.table::setDT(as.data.frame(t(oow_summary)), keep.rownames = TRUE)[] %>%
   left_join(oow_label[c("name", "varlab")], by = c("rn" = "name"))
 
 
-# write.csv(t, "oow_summary.csv")
+# write.csv(oow_summary_t, "oow_summary.csv")
 
 
 # [DEPRECIATED] ipums download
