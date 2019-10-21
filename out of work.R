@@ -36,6 +36,16 @@ oow_sample <- oow %>%
          count = 1,
          nocar = 1-car)   
 
+prime_male <- oow_sample %>%
+  filter(SAMPLE_POP == 0)%>%
+  filter(male == 1) %>%
+  filter(agecats %in% c("25-34", "35-44", "45-54"))%>%
+  select(schlcats, race,count,pwgtp_adj, unemployed, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar)%>%
+  group_by(schlcats, race) %>%
+  summarise_each(funs(sum(.*pwgtp_adj)), -pwgtp_adj) %>%
+  mutate_if(is.numeric, as.integer) %>%
+  mutate(population = "Out-of-work population")
+
 oow_details <- bind_rows(
   oow_sample%>%
     select(st_code, agecats, schlcats, race,count,pwgtp_adj, unemployed, male, married, children, youngchild, insch, lep, fb, noncitizen, refugee, dis, poor, hcost50p, nocar)
