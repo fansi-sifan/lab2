@@ -18,7 +18,7 @@ get_SBO <- function(...){
             vars = c( "NAICS2012","NAICS2012_TTL",
                       "RACE_GROUP_TTL","RACE_GROUP", 
                       "ETH_GROUP","ETH_GROUP_TTL",
-                      "SEX","SEX_TTL", "GEO_ID","GEO_TTL",
+                      "SEX","SEX_TTL", "GEO_ID","GEO_TTL","VET_GROUP", "VET_GROUP_TTL",
                       "FIRMALL", "FIRMPDEMP", "FIRMPDEMP_S", "FIRMPDEMP_F", "FIRMPDEMP_S_F"),
             ...,
             key = key)
@@ -327,20 +327,19 @@ load("../Birmingham/County Cluster/Temp data/SBA_loan_cleaned.Rda")
 
 CDFI <- loan_datafiles$TLR_matched %>%
   mutate(stco_code = str_pad(county14,5,"left","0"),
-         stcotc_code = FIPS,
-         program = "CDFI")%>%
-  filter(between(Year,2012,2016))%>%
+         stcotc_code = FIPS, 
+         year = as.integer(Year))%>%
+  filter(between(year,2012,2016))%>%
   filter(investeetype == "BUS") %>%
   filter(purpose %in% c("BUSFIXED", "BUSINESS", "BUSWORKCAP", "MICRO", "OTHER"))%>%
-  select(stco_code,stcotc_code, program, year = Year,amount = originalamount) 
+  select(stco_code,stcotc_code,year,CDFI_amount = originalamount) 
 
 FDIC <- loan_datafiles$FDIC_matched %>%
   mutate(stco_code = str_pad(county14,5,"left","0"),
          stcotc_code = paste0(State, county, gsub("\\.","",FIPS)), 
-         year = as.integer(year),
-         program = "FDIC") %>%
+         year = as.integer(year)) %>%
   filter(between(year,2012,2016))%>%
-  select(stco_code, stcotc_code, program, year, amount = x_tot)
+  select(stco_code, stcotc_code,  year, FDIC_amount = x_tot)
 
 # tract demography
 library(tidycensus)
@@ -360,32 +359,32 @@ get_pov <- function(st){
 
 get_loan <- function(metrocode, st){
   
-  tract_pov <- get_pov(st) %>%
-    filter(substr(stcotc_code,1,5)%in% metrocode)
+  df <- get_pov(st) %>%
+    filter(substr(stcotc_code,1,5)%in% metrocode)  %>%
+    left_join(CDFI, by = "stcotc_code")%>%
+    left_join(FDIC, by = c("stcotc_code", "year"))
   
-  a <- map_dfr(list(CDFI,FDIC), function(df){
-    df%>%filter(stco_code %in% metrocode)%>%
-      full_join(tract_pov, by = "stcotc_code")%>%
-      group_by(is.minority)%>%
-      summarise(value = sum(amount, na.rm = TRUE),
-                pop = sum(pop_total,na.rm = TRUE))%>%
-      mutate(pc = value/pop)
-  }) 
+  a <- df %>%
+    group_by(is.minority)%>%
+    summarise(CDFI_value = sum(CDFI_amount, na.rm = TRUE),
+              FDIC_value = sum(FDIC_amount, na.rm = TRUE),
+              pop = sum(pop_total,na.rm = TRUE))%>%
+    mutate(pc_CDFI = CDFI_value/pop,
+           pc_FDIC = FDIC_value/pop)
   
-  b <- map_dfr(list(CDFI,FDIC), function(df){
-    df%>%filter(stco_code %in% metrocode)%>%
-      full_join(tract_pov, by = "stcotc_code")%>%
-      group_by(program, is.pov)%>%
-      summarise(value = sum(amount, na.rm = TRUE),
-                pop = sum(pop_total,na.rm = TRUE))%>%
-      mutate(pc = value/pop)
-  }) 
-  
+  b <- df %>%
+    group_by(is.pov)%>%
+    summarise(CDFI_value = sum(CDFI_amount, na.rm = TRUE),
+              FDIC_value = sum(FDIC_amount, na.rm = TRUE),
+              pop = sum(pop_total,na.rm = TRUE))%>%
+    mutate(pc_CDFI = CDFI_value/pop,
+           pc_FDIC = FDIC_value/pop)
   bind_rows(a,b)
   
 }
 
-get_loan(GR_county,"mi")
+t <- get_loan(GR_county,"mi")
+t <- get_loan(MetroDenvr_actual,"co")
 
 
 # b. SBIR
@@ -439,6 +438,16 @@ get_SBIR <- function(metrocode){
   return(list(details = details, summary = summary, demo = demo))
   
 }
+
+# education fields
+get_BAfields <- get_acs(geography = "county",
+                        variables = BA_field_codes,st = "CO",key = KEY)
+
+get_BAfields <- get_BAfields %>% filter(GEOID %in% MetroDenvr_actual) %>%
+  group_by(variable)%>%
+  summarise(total = sum(estimate, na.rm = TRUE))
+
+write.csv(get_BAfields, "Denver_BAfields.csv")
 
 # 5. Lack of supportive social network
 # Chetty 
