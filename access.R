@@ -60,19 +60,25 @@ near the typical resident.'
 # car ownership
 
 load("../metro-dataset/acs5_2017/co_acs.rda") 
+# load("../metro-dataset/acs5_2017/co_acs_raw.rda") 
+
 load("../metro-dataset/acs5_2017/cbsa_acs.rda") 
 
 cbsa_acs %>%
   filter(cbsa_code == GR_cbsa)%>%
-  select(contains("public"))
+  select(contains("public"), contains("commuter")) %>%
+  View()
 
 transit_race <- co_acs %>% 
   filter(stco_code %in% c(MetroDenvr_actual, GR_county))%>%
-  mutate(public_transit_black = pop_black*pct_publictrans_black,
-         public_transit_white = pop_white*pct_publictrans_white,
-         public_transit_latino = pop_latino*pct_publictrans_latino,
-         public_transit_asian = pop_asian*pct_publictrans_asian,
-         public_transit_total = pop_total*pct_publictrans_total) %>%
-  select(stco_code, contains("public"))
+  # mutate(public_transit_black = pop_black*pct_publictrans_black,
+  #        public_transit_white = pop_white*pct_publictrans_white,
+  #        public_transit_latino = pop_latino*pct_publictrans_latino,
+  #        public_transit_asian = pop_asian*pct_publictrans_asian,
+  #        public_transit_total = pop_total*pct_publictrans_total) %>%
+  select(stco_code, contains("public"), contains("commuter"))
 
+tmp <- co_acs_raw %>%
+  filter(stco_code %in% GR_county) %>%
+  select(stco_code, contains("S0802_C04"),-contains("M"))
 
