@@ -68,7 +68,16 @@ get_opp <- function(target_cbsa, peer_cbsa) {
   df <- cbsa_oppind %>%
     filter(cbsa_code %in% code) 
   
-  opp_summary <- data.table(transpose(df))
+  opp_summary <- opp %>%
+    filter(grepl("Associate|college|Bacca", education)) %>%
+    filter(race != "Total") %>%
+    filter(age == "Total") %>%
+    mutate(value = case_when(
+      grepl("Associate|college", education) ~ as.numeric(gsub("[\\%,]", "", good_jobs)) + as.numeric(gsub("[\\%,]", "", promising_jobs)),
+      grepl("Bacca", education) ~ as.numeric(gsub("[\\%,]", "", hi_good_jobs))
+    )) %>%
+    select(-contains("jobs"), -other) %>%
+    spread(gender, value)
   
   return(opp = list(peer = df, labeled = opp_summary, details = opp))
 }
@@ -135,6 +144,7 @@ get_hiratio <- function(target_cbsa, peer_cbsa) {
   return(hiratio = list(peer = df, labeled = hi_summary, details = cbsa_housing_price))
   
 }
+
 
 # Why they are excluded =========================
 
@@ -428,6 +438,8 @@ get_upmob <- function(peer_cz){
          kfr_top20_asian_pooled_p25
   )
 }
+
+
 
 
 # edu by birth place ------------------------------
