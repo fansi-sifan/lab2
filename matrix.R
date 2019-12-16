@@ -28,13 +28,17 @@ oow_matrix <- get_matrix(race) %>%
   left_join(get_matrix(youngchild))
 
 
-
+# opportunity industries
 load("../metro-dataset/opportunity industries/cbsa_oppind_race.rda")
-number_opp <- readxl::read_xlsx(denver_opp_raw, 
-                                sheet = "DEMO2_OFCOL")
+
+opp_path <- "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/Shareable/"
+tmp <- list.files(opp_path, full.names = T) 
+opp_raw <- grep(target_cbsa, tmp, value = T)
+number_opp <- readxl::read_xlsx(opp_raw, sheet = "DEMO2_OFCOL")
+
 names(number_opp) <- tolower(names(number_opp))
 
-# opp
+# opp matrix
 
 get_opp_matrix <- function(df){
   bind_rows(
@@ -74,21 +78,16 @@ test <- function(df, cond){
     filter((race == "Total" )== cond[[4]])
 }
 
-# set which filtering variables to TRUE
+# set which filtering variables to be TRUE
 conditions = as.list(as.data.frame(cbind(rep(1,4),diag(x = 1, 4, 4)==0)))
 
 opp_matrix_row <- purrr::map_dfr(conditions, function(cond)test(number_opp, cond))
-
 opp_matrix_col <- purrr::map_dfr(conditions, function(cond)test(cbsa_oppind_race%>%
-                                                                  filter(cbsa_code %in% DV_cbsa), cond))
-
-
+                                                                  filter(cbsa_code %in% target_cbsa), cond))
 
 # business owner
 
-sbo_dv <- get_sbo_m(MetroDenvr_actual)
+sbo_dv <- get_sbo_m(target_co)
 openxlsx::write.xlsx(c(sbo_dv, list(oow_matrix, opp_matrix_row, opp_matrix_col)), file = "Denvermatrix.xlsx")
 
-sbo_gr <- get_sbo_m(GR_county)
-openxlsx::write.xlsx(sbo_gr, file = "sbo_gr.xlsx")
 
