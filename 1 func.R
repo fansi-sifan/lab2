@@ -1,29 +1,16 @@
-library(metro.data)
-library(censusapi)
-library(tidyverse)
-library(data.table)
+############################################
+## template applies to all metros - FUNC and data ###
+############################################
 
 # SETUP =================================================
 
-key <- Sys.getenv("CENSUS_API_KEY")
+library(metro.data)
+library(tidyverse)
+library(data.table)
+library(tidycensus)
 
-# df <- get_SBO(region = "metropolitan statistical area/micropolitan statistical area:24340")
-# df <- df %>%
-#   # filter(RACE_GROUP %in% race_code) %>%
-#   filter(NAICS2012 %in% traded_code) %>%
-#   filter(ETH_GROUP == "001" & SEX == "001")
-
-get_SBO <- function(...){
-  getCensus(name = "2012/sbo",
-            vars = c( "NAICS2012","NAICS2012_TTL",
-                      "RACE_GROUP_TTL","RACE_GROUP", 
-                      "ETH_GROUP","ETH_GROUP_TTL",
-                      "SEX","SEX_TTL", "GEO_ID","GEO_TTL","VET_GROUP", "VET_GROUP_TTL",
-                      "FIRMALL", "FIRMPDEMP", "FIRMPDEMP_S", "FIRMPDEMP_F", "FIRMPDEMP_S_F"),
-            ...,
-            key = key)
-}
-
+source("../metro-dataset/census/SBO.R")
+source("../metro-dataset/census/acs_var.R")
 
 create_labels <- function(df) {
   sjlabelled::get_label(df) %>%
@@ -32,39 +19,21 @@ create_labels <- function(df) {
     rename("label" = ".")
 }
 
-# DATASETS ==============================================
-# define geographies
-MetroDenver_cbsa <- c("22660", "19740", "14500", "24540")
-Denverpeer_cbsa <- c("12420", "33460", "38060","38900", "41740", "41620", "42660")
-GRpeer_cbsa <- c("14260","17140","17460","24860","26900","33340","33460","34980","41620","46140","48620")
-
-# MetroDenvr_approx <- (county_cbsa_st %>%
-#                         filter(cbsa_code %in% MetroDenver_cbsa))$stco_code
-
-MetroDenvr_actual <- (county_cbsa_st %>%
-                        filter(cbsa_code %in% MetroDenver_cbsa) %>%
-                        filter(!stco_code %in% c("08039", "08093", "08019", "08047")))$stco_code
-
-
-DV_cbsa <- c("19740")
-GR_cbsa <- "24340"
-GR_county <- (county_cbsa_st%>%filter(cbsa_code%in%GR_cbsa))$stco_code
-
-# Who is exluded ---------
+# Who is exluded =====================================
 # 1. No job
 # out of work
 
-get_oow <- function(metrocode, peercode) {
+get_oow <- function(target_cbsa, peer_cbsa) {
   load("../metro-dataset/out_of_work/co_oow.rda")
-  code <- c(metrocode, peercode)
-
+  code <- c(target_cbsa, peer_cbsa)
+  
   oow <- co_oow %>%
-    filter(cbsa_code %in% metrocode)
-
+    filter(cbsa_code %in% target_cbsa)
+  
   df <- co_oow %>%
     filter(cbsa_code %in% code)%>%
     filter(grepl("population",population))
-
+  
   oow_summary <- bind_cols(create_labels(co_oow), data.table::transpose(df))
   return(oow = list(peer = df, labeled = oow_summary, details = oow))
 }
@@ -72,78 +41,68 @@ get_oow <- function(metrocode, peercode) {
 
 # 2. Bad job
 # low wage
-get_lww <- function(metrocode, peercode) {
+get_lww <- function(target_cbsa, peer_cbsa) {
   load("../metro-dataset/low_wage_worker/cbsa_low_wage_worker.rda")
-  code <- c(metrocode, peercode)
+  code <- c(target_cbsa, peer_cbsa)
   lww <- cbsa_low_wage_worker %>%
-    filter(cbsa_code %in% metrocode)
-
+    filter(cbsa_code %in% target_cbsa)
+  
   df <- cbsa_low_wage_worker %>%
     filter(cbsa_code %in% code)%>%
     filter(grepl("Low-wage workers|Workers",population))
-
+  
   lww_summary <- bind_cols(create_labels(cbsa_low_wage_worker), data.table::transpose(df))
   return(lww = list(peer = df, labeled = lww_summary, details = lww))
 }
 
 # opportunity industries
-get_opp <- function(metrocode, peercode) {
+get_opp <- function(target_cbsa, peer_cbsa) {
   # BA/2-yr but no good job
   load("../metro-dataset/opportunity industries/cbsa_oppind_race.rda")
   load("../metro-dataset/opportunity industries/cbsa_oppind.rda")
-  code <- c(metrocode, peercode)
+  code <- c(target_cbsa, peer_cbsa)
   
   opp <- cbsa_oppind_race %>%
-    filter(cbsa_code %in% metrocode)
-
+    filter(cbsa_code %in% target_cbsa)
+  
   df <- cbsa_oppind %>%
     filter(cbsa_code %in% code) 
   
   opp_summary <- data.table(transpose(df))
-
+  
   return(opp = list(peer = df, labeled = opp_summary, details = opp))
 }
 
 
 # 3. Not able to start firm
 # SBO race and gender gaps (ASE not available for Grand Rpaids MSA)
-# df <- get_SBO(region = "county:081", regionin  = "state:26")
 
-# get_SBO(region = "us:*")
 
-get_sbo <- function(stco_code) {
-  co_code <- paste0("county:",str_sub(stco_code, 3, 5))
-  st_code <- paste0("state:",str_sub(stco_code, 1, 2))
-
-  df <- get_SBO(region = co_code, regionin = st_code)
-
-  traded_code <- c("31-33", "51", "52", "54")
-  race_code <- c("96", "30", "40")
-
+summarise_sbo <- function(var, df){
+  var <- rlang::enquo(var)
+  
   df %>%
-    # filter(RACE_GROUP %in% race_code) %>%
-    filter(NAICS2012 %in% traded_code) %>%
-    filter(SEX == "001")
-
+    # group_by(state, county, GEO_TTL, !!var) %>%
+    mutate(firmdemp = as.numeric(FIRMPDEMP),
+           firmall = as.numeric(FIRMALL)) %>%
+    group_by(!!var)%>%
+    summarise(firmdemp = sum(firmdemp),
+              firmall = sum(firmall))
 }
+
 
 get_sbo_m <- function(stco_code){
-  sbo_df <- purrr::map_df(stco_code, get_sbo)
   
-  sbo_summary_race <- sbo_df %>%
-    group_by(state, county, GEO_TTL, RACE_GROUP_TTL) %>%
-    mutate(firmdemp = as.numeric(FIRMPDEMP)) %>%
-    summarise(firmdemp = sum(firmdemp)) %>%
-    spread(RACE_GROUP_TTL, firmdemp) 
+  # get data
+  sbo_df <- purrr::map_df(stco_code, get_sbo_co)
   
-  sbo_summary_ethnicity <- sbo_df %>%
-    group_by(state, county, GEO_TTL, ETH_GROUP_TTL) %>%
-    mutate(firmdemp = as.numeric(FIRMPDEMP)) %>%
-    summarise(firmdemp = sum(firmdemp)) %>%
-    spread(ETH_GROUP_TTL, firmdemp)
-  
-  return(sbo = list(race = sbo_summary_race, ethnicity = sbo_summary_ethnicity, details = sbo_df))
+  # summary table by each demographics
+  return(list(race = summarise_sbo(RACE_GROUP_TTL, sbo_df),
+              ethnicity = summarise_sbo(ETH_GROUP_TTL, sbo_df),
+              vet = summarise_sbo(VET_GROUP_TTL, sbo_df),
+              sex = summarise_sbo(SEX_TTL, sbo_df)))
 }
+
 
 
 # 4. School proficiency 
@@ -154,16 +113,19 @@ get_school <- function(code){
   df <- co_school_proficiency %>%
     filter(stco_code %in% code)
   
-  return(school = list(labeled = df))
+  sc_summary <- df %>%
+    summarise_at(vars(contains("TOTAL")), sum)
+  
+  return(school = list(labeled = sc_summary, details = df))
 }
 
 
 # 5. Flat income
 # housing
 
-get_hiratio <- function(metrocode, peercode) {
+get_hiratio <- function(target_cbsa, peer_cbsa) {
   load("../metro-dataset/housing_price/cbsa_housing_price.rda")
-  code <- c(metrocode, peercode)
+  code <- c(target_cbsa, peer_cbsa)
   
   df <- cbsa_housing_price %>%
     filter(cbsa_code %in% code)
@@ -174,37 +136,45 @@ get_hiratio <- function(metrocode, peercode) {
   
 }
 
+# Why they are excluded =========================
 
-
-# Why are they excluded --------
-# 1. Lack of quality job creation
-# a. advanced industry/tradable trend
-
-# readin xwalks
-
+# 1. quality job creation
+# a. get datasets
+# read in xwalks
 load("../metro.data/data/naics4_ai.rda")  
 load("../metro.data/data/naics6_traded.rda")  
-naics6_opp <- readxl::read_xlsx("V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/Shareable/19740 Denver CO BMPP Opportunity Industries - 2017 Job shares.xlsx", 
-                                sheet = "METRO_INDUSTRY_2017") %>%
-  filter(str_length(NAICS) == 6) %>%
-  select(code_naics6_2017 = NAICS, pct_bad=`Other jobs`)
+
+# read in opportunity job mix
+opp_path <- "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/Shareable/"
+tmp <- list.files(opp_path, full.names = T) 
+
+path <- purrr::map(c(target_cbsa, peer_cbsa), function(x)grep(x, tmp,value = T)) %>%
+  map_if(is.null, ~ NA_character_) %>%
+  flatten_chr()
+
+# denver_opp_raw <- "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/Shareable/19740 Denver CO BMPP Opportunity Industries - 2017 Job shares.xlsx"
+# gr_opp_raw <-  "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/Shareable/24340 Grand Rapids MI BMPP Opportunity Industries - 2017 Job shares.xlsx"
+
+naics6_opp <- purrr::map_dfr(path, function(x)readxl::read_xlsx(x, sheet = "METRO_INDUSTRY_2017") %>%
+                               filter(str_length(NAICS) == 6) %>%
+                               select(cbsa_code = CBSA, code_naics6_2017 = NAICS, pct_bad =`Other jobs`))
 
 
-# Downloaded EMSI data
+# Downloaded EMSI data ----------
 # peer cbsa data
-emsi_peers <- read_csv("data/Emsi_2019.3_ind_data.csv") %>%
+emsi_peers <- read_csv(path_emsi_peers) %>%
   mutate(cbsa_code = str_pad(Area,5,"left","0"))
 
 # regional county level data 
-emsi_region <- read_csv("data/Emsi_2019.4_ind_data.csv") %>%
+emsi_region <- read_csv(path_emsi_region) %>%
   mutate(stco_code = str_pad(Area,5,"left","0"),
          cbsa_code = case_when(
-           stco_code %in% MetroDenvr_actual ~ "Metro Denver",
-           stco_code %in% GR_county ~ "Grand Rapids - Kentwood"
-         )) %>%
-  filter(!is.na(cbsa_code))%>%
+           stco_code %in% target_co ~ target_cbsa_core)
+  ) %>%
   group_by(cbsa_code, Industry, Year)%>%
-  summarise(Jobs = sum(Jobs, na.rm = T))%>% ungroup()
+  summarise(Jobs = sum(Jobs, na.rm = T))%>% 
+  ungroup() %>%
+  filter(!is.na(cbsa_code))
 
 # merge everything together
 emsi <- emsi_region %>%  
@@ -213,21 +183,9 @@ emsi <- emsi_region %>%
          code_naics4_2017 = str_sub(Industry,1,4)) %>%
   left_join(naics6_traded, by = "code_naics6_2017") %>%
   left_join(ai, by = "code_naics4_2017") %>%
-  left_join(naics6_opp, by = "code_naics6_2017")
+  left_join(naics6_opp, by = c("code_naics6_2017", "cbsa_code"))
 
 skimr::skim(emsi)
-# EMSI 4/6 digit over time
-
-get_ind <- function(region, peer, col){
-  col = enquo(col)
-  emsi %>%
-    filter(cbsa_code %in% c(peer,region))%>%
-    group_by(!!col, Year, cbsa_code, `Area Name`)%>%
-    summarise(Jobs = sum(Jobs, na.rm = T)) %>%
-    # unite("Year",!!col:Year)%>%
-    spread(Year, Jobs)
-  }
-
 
 # b. share of new jobs below living wage over time
 get_netjobs <- function(region, peer){
@@ -240,45 +198,37 @@ get_netjobs <- function(region, peer){
            net_jobs_1012 = `2012` - `2010`,
            net_jobs_1214 = `2014` - `2012`,
            net_jobs_1416 = `2016` - `2014`,
-           net_jobs_1618 = `2018` - `2016`
-           )%>%
+           net_jobs_1618 = `2018` - `2016`,
+           quality_0810 = (1-pct_bad) *net_jobs_0810,
+           quality_1012 = (1-pct_bad) *net_jobs_1012,
+           quality_1214 = (1-pct_bad) *net_jobs_1214,
+           quality_1416 = (1-pct_bad) *net_jobs_1416,
+           quality_1618 = (1-pct_bad) *net_jobs_1618
+    )%>%
     group_by(cbsa_code, cbsa_name)%>%
-    summarise(pct_quality_0810 = 1- weighted.mean(pct_bad,net_jobs_0810, na.rm =T),
-              pct_quality_1012 = 1- weighted.mean(pct_bad,net_jobs_1012, na.rm =T),
-              pct_quality_1214 = 1- weighted.mean(pct_bad,net_jobs_1214, na.rm =T),
-              pct_quality_1416 = 1- weighted.mean(pct_bad,net_jobs_1416, na.rm =T),
-              pct_quality_1618 = 1- weighted.mean(pct_bad,net_jobs_1618, na.rm =T))
+    summarise_if(is.numeric, sum, na.rm = TRUE) %>%
+    mutate(pct_quality_0810 = quality_0810/net_jobs_0810,
+           pct_quality_1012 = quality_1012/net_jobs_1012,
+           pct_quality_1214 = quality_1214/net_jobs_1214,
+           pct_quality_1416 = quality_1416/net_jobs_1416,
+           pct_quality_1618 = quality_1618/net_jobs_1618)
 }
 
 
-# c. small firms and wage
-# ASE
 
-# 2. Lack of job preparation
-# a. high school dropouts and stopouts ----------------
+# EMSI 4/6 digit over time by traded, ai
 
-# source("../metro-dataset/census/clean_acs.R")
-# 
-# tmp <- clean_acs(geography = "county", 
-#           variables = map_chr(str_pad(seq(1,29),3,"left",0), function(x)paste0("B14005_",x,"E")), 
-#           county = "035", state = "CO", 
-#           year = 2017, span = 5,
-#           key = Sys.getenv("CENSUS_API_KEY"),
-#           short = T) 
-# 
-# # no hs degree, not enrolled, not working 
-# tmp %>%
-#  select (hs_drop_unemp_m = unemployed_estimate_2,
-#          hs_drop_emp_m = employed_estimate_2,
-#          hs_drop_nlf_m = not_in_labor_force_estimate_2,
-#          
-#          hs_drop_unemp_f = unemployed_estimate_5,
-#          hs_drop_emp_f = employed_estimate_5,
-#          hs_drop_nlf_f = not_in_labor_force_estimate_5,
-#          
-#          total_1619_m = male_estimate,
-#          total_1619_f = female_estimate) %>%
-#   mutate()
+get_ind <- function(region, peer, col){
+  col = enquo(col)
+  emsi %>%
+    filter(cbsa_code %in% c(peer,region))%>%
+    group_by(!!col, Year, cbsa_code, `Area Name`)%>%
+    summarise(Jobs = sum(Jobs, na.rm = T)) %>%
+    # unite("Year",!!col:Year)%>%
+    spread(Year, Jobs)
+}
+
+
 
 # b. Misaligned training: demand for tech skill outpace supply (digital training)
 # digitalization
@@ -290,11 +240,18 @@ get_digital <- function(metrocode, peer){
     select(cbsa_code, cbsa_name, contains("pct"))
 }
 
-# c. decline in employer-provided training
 
-# 3. Lack of job access
-# a. Job sprawl
-# natalie
+# education fields
+get_BAfields <- function(target_co){
+  tidycensus::get_acs(geography = "county",
+          variables = BA_field_codes,
+          st = str_sub(target_co[[1]],1,2),
+          key = KEY, output = "wide")%>% 
+    filter(GEOID %in% target_co) %>%
+    summarise_if(is.numeric, sum)
+}
+
+
 
 # b. job access difference for transit/car user
 # Access Across America
@@ -304,7 +261,7 @@ get_access <- function(metrocode,peer){
     cbsa_code%in%c(metrocode,peer)
   )
 }
-# source("access.R")
+
 
 # job density
 load("../metro-dataset/job_density/co_jobdensity.rda")
@@ -312,13 +269,13 @@ load("../metro-dataset/job_density/cbsa_job_density_expected.rda")
 
 get_density <- function(metrocode,peer){
   co_jobdensity %>%
-  filter(cbsa_code %in% c(metrocode,peer))%>%
-  spread(year,county_jobdensity) %>%
+    filter(cbsa_code %in% c(metrocode,peer))%>%
+    spread(year,county_jobdensity) %>%
     left_join(cbsa_job_density_expected %>%
                 filter(measure == "expected jobs per square mile")%>%
-                  filter(cbsa_code %in% c(metrocode,peer))%>%
-                  mutate(expected_0415 = density2015/density2004-1)%>%
-                  select(cbsa_code, expected_0415), by = "cbsa_code")
+                filter(cbsa_code %in% c(metrocode,peer))%>%
+                mutate(expected_0415 = density2015/density2004-1)%>%
+                select(cbsa_code, expected_0415), by = "cbsa_code")
 }
 
 # 4. Lack of capital
@@ -342,9 +299,6 @@ FDIC <- loan_datafiles$FDIC_matched %>%
   select(stco_code, stcotc_code,  year, FDIC_amount = x_tot)
 
 # tract demography
-library(tidycensus)
-KEY <- Sys.getenv("CENSUS_API_KEY")
-source("../metro-dataset/census/acs_var.R")
 
 get_pov <- function(st){
   bind_cols(
@@ -382,9 +336,6 @@ get_loan <- function(metrocode, st){
   bind_rows(a,b)
   
 }
-
-t <- get_loan(GR_county,"mi")
-t <- get_loan(MetroDenvr_actual,"co")
 
 
 # b. SBIR
@@ -439,19 +390,76 @@ get_SBIR <- function(metrocode){
   
 }
 
-# education fields
-get_BAfields <- get_acs(geography = "county",
-                        variables = BA_field_codes,st = "CO",key = KEY)
 
-get_BAfields <- get_BAfields %>% filter(GEOID %in% MetroDenvr_actual) %>%
-  group_by(variable)%>%
-  summarise(total = sum(estimate, na.rm = TRUE))
-
-write.csv(get_BAfields, "Denver_BAfields.csv")
 
 # 5. Lack of supportive social network
-# Chetty 
-# Mike Lee: social capital project
 
-# 6. Employer practices
 
+chetty <- read_csv("V:/_metro_data_warehouse/data_raw/chetty opportunity/cz_outcomes.csv")
+chetty_innovate <- read_csv("V:/_metro_data_warehouse/data_raw/chetty opportunity/patents_paper_code_and_data/code_and_data/data (public online tables)/excel/table_1a.csv")
+
+
+# cost of exclusion ==================================
+get_inventor <- function(peer_cz){
+  chetty_innovate %>%
+  # filter(par_czname %in% DV_peer_cz) %>%
+  filter(par_czname %in% peer_cz) %>%
+  select(par_cz, par_czname, par_state, 
+         kid_count, inventor, 
+         kid_count_g_m, inventor_g_m, 
+         kid_count_g_f, inventor_g_f) 
+}
+
+get_upmob <- function(peer_cz){
+  chetty %>%
+  filter(czname %in% peer_cz)%>%
+  select(cz, czname,
+         kfr_top20_pooled_pooled_p75,
+         kfr_top20_pooled_pooled_p25,
+
+         kfr_black_pooled_p25,
+         kfr_white_pooled_p25,
+         kfr_hisp_pooled_p25,
+         kfr_asian_pooled_p25,
+         
+         kfr_top20_black_pooled_p25,
+         kfr_top20_white_pooled_p25,
+         kfr_top20_hisp_pooled_p25,
+         kfr_top20_asian_pooled_p25
+  )
+}
+
+
+# edu by birth place ------------------------------
+
+get_edu_birth <- function(target_co, peer_cbsa){
+  
+  
+  load("../metro-dataset/census_edu_res/co_edu_res.rda")
+  load("../metro-dataset/census_edu_res/cbsa_edu_res.rda")
+  
+  co_edu_res %>%
+    filter(stco_code %in% target_co) %>%
+    bind_rows(cbsa_edu_res %>%
+                filter(cbsa_code %in% peer_cbsa)) %>%
+    group_by(cbsa_code, cbsa_name, year)%>%
+    summarise_if(is.numeric, sum) %>%
+    mutate( pct_baplus_instate = baplus_instate/all_instate,
+            pct_baplus_outstate = baplus_outstate/all_outstate,
+            pct_baplus_fb = baplus_fb/all_fb,
+            pct_baplus_total = baplus_total/all_total)
+  
+}
+
+
+# demography trends -------------
+
+
+get_age_race <- function(target_cbsa){
+  load("../metro-dataset/millenials diversity/cbsa_agegroup_race.rda")
+  
+  cbsa_agegroup_race %>%
+    filter(cbsa_code %in% target_cbsa) %>%
+    group_by(race)%>%
+    summarise_if(is.numeric, sum)
+}
