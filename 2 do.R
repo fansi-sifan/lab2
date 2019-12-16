@@ -54,9 +54,33 @@ DV2 <- get_why(county = target_co,
 
 openxlsx::write.xlsx(DV2, file =  paste0("result/", name,"_why.xlsx"))
 
+
+# gaps ==========================================================
+
+source("gaps.R")
+
+gaps <- list(
+  benchmark = get_benchmark(target_co),
+  
+  gap_oow =  bind_rows(
+    cal_gap(df, target_co, "18-24"),
+    cal_gap(df, target_co, "25-64")
+  ) %>%
+    arrange(stco_code, pl_name),
+  
+  gap_lww = gap_lww_peers(df)
+  
+)
+
+openxlsx::write.xlsx(gaps, file = paste0("result/", name,"_gaps.xlsx"))
+
+
 # Cost of exculsion and others -------------------------------------------
 
-upmobility <- get_upmob(peer_cz)
-inventor <- get_inventor(peer_cz)
-edu_birth <- get_edu_birth(target_co, peer_cbsa)
-age_race <- get_age_race(target_cbsa)
+costs <- list(
+  upmobility <- get_upmob(peer_cz),
+  inventor <- get_inventor(peer_cz),
+  edu_birth <- get_edu_birth(target_co, peer_cbsa),
+  age_race <- get_age_race(target_cbsa)
+)
+openxlsx::write.xlsx(gaps, file = paste0("result/", name,"_cost.xlsx"))
