@@ -18,8 +18,8 @@ get_who <- function(target_cbsa, peer_cbsa, target_co, name){
   
 }
 
-df <- get_who(target_cbsa, peer_cbsa, target_co, name)
-openxlsx::write.xlsx(df, file = paste0("result/", name,"_who.xlsx"))
+who <- get_who(target_cbsa, peer_cbsa, target_co, name)
+openxlsx::write.xlsx(who, file = paste0("result/", name,"_who.xlsx"))
 
 
 # Why they are excluded --------------------------------------------------
@@ -48,11 +48,11 @@ get_why <- function(county, cbsa, peer, st,name){
   return(df)
 }
 
-DV2 <- get_why(county = target_co, 
+why <- get_why(county = target_co, 
                cbsa = target_cbsa,
                peer = peer_cbsa)
 
-openxlsx::write.xlsx(DV2, file =  paste0("result/", name,"_why.xlsx"))
+openxlsx::write.xlsx(why, file =  paste0("result/", name,"_why.xlsx"))
 
 
 # gaps ==========================================================
@@ -63,12 +63,15 @@ gaps <- list(
   benchmark = get_benchmark(target_co),
   
   gap_oow =  bind_rows(
-    cal_gap(df, target_co, "18-24"),
-    cal_gap(df, target_co, "25-64")
+    
+    # 18-24 not available for grand rapids
+    
+    # cal_gap(who, target_co, "18-24"),
+    cal_gap(who, target_co, "25-64")
   ) %>%
     arrange(stco_code, pl_name),
-  
-  gap_lww = gap_lww_peers(df)
+
+  gap_lww = gap_lww_peers(who)
   
 )
 
@@ -78,9 +81,10 @@ openxlsx::write.xlsx(gaps, file = paste0("result/", name,"_gaps.xlsx"))
 # Cost of exculsion and others -------------------------------------------
 
 costs <- list(
-  upmobility <- get_upmob(peer_cz),
-  inventor <- get_inventor(peer_cz),
-  edu_birth <- get_edu_birth(target_co, peer_cbsa),
-  age_race <- get_age_race(target_cbsa)
+  upmobility = get_upmob(peer_cz),
+  inventor = get_inventor(peer_cz),
+  edu_birth = get_edu_birth(target_co, peer_cbsa),
+  age_race = get_age_race(target_cbsa)
 )
-openxlsx::write.xlsx(gaps, file = paste0("result/", name,"_cost.xlsx"))
+
+openxlsx::write.xlsx(costs, file = paste0("result/", name,"_cost.xlsx"))
