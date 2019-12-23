@@ -179,3 +179,14 @@ details <- sba_details %>%
 
 openxlsx::write.xlsx(list(race = race, gender = gender, veteran = vet, all = details),"SBA.xlsx")
 
+
+# co paradox =================
+
+load("../metro-dataset/census_edu_res/cbsa_edu_res.rda")
+
+cbsa_edu_res %>%
+  filter(cbsa_code %in% peer_cbsa) %>%
+  filter(year == 2017) %>%
+  select(cbsa_name, contains("pct")) %>%
+  View()
+
