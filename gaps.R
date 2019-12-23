@@ -20,6 +20,7 @@ get_benchmark <- function(target_co){
     co_acs_raw %>%
       filter(stco_code %in% c(target_co))%>%
       select(contains("S1501")) %>%
+      select(contains("E"))%>%
       summarise_if(is.numeric, sum)%>%
       mutate(edu_baplus_nonwhite = (S1501_C01_036E+S1501_C01_054E+S1501_C01_042E),
              edu_all_nonwhite = (S1501_C01_034E+S1501_C01_052E+S1501_C01_040E),
@@ -73,16 +74,15 @@ cal_gap <- function(df, co_codes, age) {
   
   B <- as.matrix(t %>% select(contains("1")))
 
-  df <- as.data.frame(matrix(rep(A, each = nrow(t)), nrow = nrow(t)) - B)
-
-  bind_cols(t, df) 
+  tmp <- as.data.frame(matrix(rep(A, each = nrow(t)), nrow = nrow(t)) - B)
+ 
+  bind_cols(t, tmp)
   
   # bind_cols(pct %>%
   #   group_by(stco_code, population, pl_name, age, total) %>%
   #   mutate_each(funs(. * total)), 
   # as.data.frame(B))
 }
-
 
 
 # LWW -----------------------------
