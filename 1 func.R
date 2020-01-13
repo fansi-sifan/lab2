@@ -93,8 +93,10 @@ summarise_sbo <- function(var, df){
   df %>%
     # group_by(state, county, GEO_TTL, !!var) %>%
     mutate(firmdemp = as.numeric(FIRMPDEMP),
-           firmall = as.numeric(FIRMALL)) %>%
-    group_by(!!var)%>%
+           firmall = as.numeric(FIRMALL), 
+           is.traded = NAICS2012 %in% traded_code) %>%
+    group_by(!!var) %>%
+    group_by(is.traded, add = T) %>%
     summarise(firmdemp = sum(firmdemp),
               firmall = sum(firmall))
 }
