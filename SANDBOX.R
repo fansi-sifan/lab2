@@ -190,3 +190,25 @@ cbsa_edu_res %>%
   select(cbsa_name, contains("pct")) %>%
   View()
 
+# cost of turnover ===============
+
+occ_sep <- read.csv("data/Emsi_2019.3_occ_data.csv")
+
+sep_cost <- occ_sep %>% 
+  group_by(Area.Name, Area, Occupation) %>%
+  summarise(Jobs = sum(Jobs, na.rm = T),
+            Replacements = sum(Replacements, na.rm = T),
+            rate_rep = Replacements/Jobs,
+            Average.Earnings = sum(Average.Earnings, na.rm = T))%>%
+  # Onboarding cost + cost to fill vacancy = 5000; cost to cover the position (45 days unfilled); 
+  mutate(cost_sep = Average.Earnings * 8 * 60/3 + Average.Earnings/3 * 8 * 45 + 5000) %>%
+  # region summaries
+  mutate(st = str_sub(Area.Name,-2,-1)) %>%
+  group_by(st)%>%
+  summarise(
+    # 50% of the turnovers are preventable
+    cost_rep = sum(cost_sep * Replacements*0.53, na.rm = T),
+    Jobs = sum(Jobs, na.rm = T),
+    Replacements = sum(Replacements, na.rm = T),
+    rate_rep = Replacements/Jobs
+  ) 
