@@ -3,23 +3,41 @@ library(tidyverse)
 # read in opportunity job mix --------
 
 # raw data 
-opp_path <- "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/"
-# opp_path <- "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/24340 Grand Rapids MI/24340 Grand Rapids MI 3digit flows.csv"
+# opp_path <- "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/"
+# GR <- "24340 Grand Rapids MI/24340 Grand Rapids MI 3digit flows.csv"
+# Denver <- "19740 Denver CO/19740 3digit flows.csv"
+# 
+# df <- read_csv(paste0(opp_path,GR))
 
-opp_raw <- read_csv(paste0(opp_path,"19740 Denver CO/19740 3digit flows.csv"))
+df <- readxl::read_excel("V:/Performance/Project files/Opportunity Industries/Data/Michigan/OI Output/OI Results/24340 Grand Rapids MI/24340 Grand Rapids MI Opportunity Jobs analysis.xlsx", 
+                         sheet = "JOB_HOLDERS_SHARE_OF_JOBS")
 
-skimr::skim(opp_raw)
+skimr::skim(df)
+
+df %>%
+  filter(`Skill level` == "Total") %>%
+  filter(Education == "Total") %>%
+  filter(`Working age` == "Total") %>%
+  filter(`Age group` == "Total") %>%
+  filter(Gender == "Total") %>%
+  filter(`ALICE status` == "Total")
+  
+
+tibble::tribble(
+  ~`Group's.share.of.all.jobs`, ~`Group's.share.of.all.good.jobs`, ~`Group's.share.of.all.promising.jobs`, ~`Group's.share.of.all.other.jobs`,
+                       557649L,                           133978L,                                 39552L,                            384109L
+  )
 
 # summary(as.factor(opp_raw$gender))
 # summary(as.factor(opp_raw$race))
 # summary(as.factor(opp_raw$education))
 # summary(as.factor(opp_raw$age))
 # summary(as.factor(opp_raw$titlea))
-summary(as.factor(opp_raw$occ_a))
+summary(as.factor(df$occ_a))
 
 
 # wage by age and race
-opp_sp <- opp_raw %>%
+opp_sp <- df %>%
   filter(age == "Total") %>%
   filter(gender == "Total") %>%
   # mutate(edu = ifelse(education %in% c("Associate's degree","Some college or certificate", "High school diploma"),"High School",education))%>%

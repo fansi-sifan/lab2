@@ -7,27 +7,31 @@ library(metro.data)
 
 # targets  ----------------------
 # name <- "Metro Denver"
-name <- "Grand Rapids"
+# name <- "Grand Rapids"
+# name <- "Birmingham"
 # MetroDenver
-# target_cbsa <- c("22660", "19740", "14500", "24540")
-target_cbsa_core <- target_cbsa <- "24340"
+target_cbsa <- c("22660", "19740", "14500", "24540")
+# target_cbsa_core <- target_cbsa <- "24340"
+# target_cbsa_core <- target_cbsa <- "13820"
+
 # if multiple cbsa, select a core
 # target_cbsa_core <- "19740"
 # GR cbsa
 # target_cbsa <- "24340"
 
-target_co <- (county_cbsa_st %>% filter(cbsa_code %in% target_cbsa))$stco_code
+# target_co <- (county_cbsa_st %>% filter(cbsa_code %in% target_cbsa))$stco_code
+# target_co <- "01073"
 
 # customized counties
-# target_co <- (county_cbsa_st %>%
-#   filter(cbsa_code %in% target_cbsa) %>%
-#   filter(!stco_code %in% c("08039", "08093", "08019", "08047")))$stco_code
-# 
+target_co <- (county_cbsa_st %>%
+  filter(cbsa_code %in% target_cbsa) %>%
+  filter(!stco_code %in% c("08039", "08093", "08019", "08047")))$stco_code
+
 
 # peers -------------------------
 
 # Denver peers
-# peer_cbsa <- c("12420", "33460", "38060", "38900", "41740", "41620", "42660")
+peer_cbsa <- c("12420", "33460", "38060", "38900", "41740", "41620", "42660")
 
 # Grand Rapids peers
 peer_cbsa <- c("14260","17140","17460","24860","26900","33340","33460","34980","41620","46140","48620")

@@ -136,10 +136,15 @@ get_school <- function(code){
 
 get_hiratio <- function(target_cbsa, peer_cbsa) {
   load("../metro-dataset/housing_price/cbsa_housing_price.rda")
+  # load("../metro-dataset/housing_renter/cbsa_rental.rda")
+  
   code <- c(target_cbsa, peer_cbsa)
   
-  df <- cbsa_housing_price %>%
+  owner <- cbsa_housing_price %>%
     filter(cbsa_code %in% code)
+  
+  # renter <- cbsa_rental %>%
+  #   filter(cbsa_code %in% code)
   
   hi_summary <- bind_cols(create_labels(df), data.table::transpose(df))
   
@@ -160,12 +165,15 @@ load("../metro.data/data/naics6_traded.rda")
 opp_path <- "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/Shareable/"
 tmp <- list.files(opp_path, full.names = T) 
 
+
 path <- purrr::map(c(target_cbsa, peer_cbsa), function(x)grep(x, tmp,value = T)) %>%
   map_if(is.null, ~ NA_character_) %>%
   flatten_chr()
 
 # denver_opp_raw <- "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/Shareable/19740 Denver CO BMPP Opportunity Industries - 2017 Job shares.xlsx"
 # gr_opp_raw <-  "V:/Performance/Project files/Opportunity Industries/Data/Output/Final/Metros/Shareable/24340 Grand Rapids MI BMPP Opportunity Industries - 2017 Job shares.xlsx"
+
+
 
 naics6_opp <- purrr::map_dfr(path, function(x)readxl::read_xlsx(x, sheet = "METRO_INDUSTRY_2017") %>%
                                filter(str_length(NAICS) == 6) %>%

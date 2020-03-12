@@ -1,12 +1,14 @@
 source("func.R")
 # Job access
-
+# Access across america
 # all states: https://conservancy.umn.edu/bitstream/handle/11299/200508/ALL_STATES_CSV_tr_2017_0700-0859.zip?sequence=105&isAllowed=y
+
 
 # MI
 mi_17 <- "https://conservancy.umn.edu/bitstream/handle/11299/200508/26_tr_2017_0700-0859.csv?sequence=128&isAllowed=y"
 mi_15 <- "https://conservancy.umn.edu/bitstream/handle/11299/183801/26_tr_2015_0700-0859.csv?sequence=293&isAllowed=y"
 mi_rac <- "../../LEHD LODES/rac_JT02_2017/mi_rac_JT02_2017.csv"
+mi_od <- "../../LEHD LODES/od_JT02_2067/"
 # CO state
 co_17 <- "https://conservancy.umn.edu/bitstream/handle/11299/200508/08_tr_2017_0700-0859.csv?sequence=111&isAllowed=y"
 co_15 <- "https://conservancy.umn.edu/bitstream/handle/11299/183801/08_tr_2015_0700-0859.csv?sequence=276&isAllowed=y"
